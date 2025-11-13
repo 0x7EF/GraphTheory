@@ -5,22 +5,18 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <unordered_map>
 
 class GraphNode {
 private:
     std::string Label;
-    std::vector<GraphNode> Neighbors;
+    std::unordered_map<GraphNode*, double> Neighbors;
     int Degree;
-public:
-    GraphNode() {
-        this->Label = "";
-        this->Neighbors = std::vector<GraphNode>();
-        this->Degree = 0;
-    };
 
-    GraphNode(std::string label) {
+public:
+    GraphNode(std::string label="") {
         this->Label = label;
-        this->Neighbors = std::vector<GraphNode>();
+        this->Neighbors = {};
         this->Degree = 0;
     }
 
@@ -36,10 +32,26 @@ public:
         return this->Degree;
     }
 
-    void addNeighbor(GraphNode other) {
-        this->Neighbors.push_back(other);
+    void addNeighbor(GraphNode *other, double weight=0) {
+        this->Neighbors[other] = weight;
         this->Degree += 1;
     }
+    
+    void removeNeighbor(GraphNode *other) {
+        if (this->Neighbors.find(other) != this->Neighbors.end()) { 
+            this->Neighbors.erase(other);
+            this->Degree -= 1;
+        }
+    }
+    
+    std::unordered_map<GraphNode*, double> getNeighbors() {
+        return this->Neighbors;
+    }
+
+    bool isNeighbor(GraphNode *other) {
+        return (this->Neighbors.find(other) != this->Neighbors.end());    
+    }
+
 
 };
 
