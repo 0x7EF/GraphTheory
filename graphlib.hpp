@@ -4,114 +4,104 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <algorithm>
 #include <unordered_map>
+#include <memory>
 
 class GraphNode {
 private:
     std::string Label;
     std::unordered_map<GraphNode*, double> Neighbors;
-    size_t Degree;
 
 public:
-    GraphNode(std::string label="") {
-        this->Label = label;
-        this->Neighbors = {};
-        this->Degree = 0;
+    GraphNode(std::string label = "") : Label(label) {}
+
+    const std::string& getLabel() const { return Label; }
+    void setLabel(const std::string& label) { Label = label; }
+
+    int getDegree() const { return Neighbors.size(); }
+
+    void addNeighbor(GraphNode* other, double weight = 0) {
+        Neighbors[other] = weight;
     }
 
-    std::string getLabel() {
-        return this->Label;
+    void removeNeighbor(GraphNode* other) {
+        Neighbors.erase(other);
     }
 
-    void setLabel(std::string label) {
-        this->Label = label;
-    }
-    
-    int getDegree() {
-        return this->Degree;
+    const std::unordered_map<GraphNode*, double>& getNeighbors() const {
+        return Neighbors;
     }
 
-    void addNeighbor(GraphNode *other, double weight=0) {
-        this->Neighbors[other] = weight;
-        this->Degree += 1;
+    bool isNeighbor(GraphNode* other) const {
+        return Neighbors.find(other) != Neighbors.end();
     }
-    
-    void removeNeighbor(GraphNode *other) {
-        if (this->Neighbors.find(other) != this->Neighbors.end()) { 
-            this->Neighbors.erase(other);
-            this->Degree -= 1;
-        }
-    }
-    
-    std::unordered_map<GraphNode*, double> getNeighbors() {
-        return this->Neighbors;
-    }
-
-    bool isNeighbor(GraphNode *other) {
-        return (this->Neighbors.find(other) != this->Neighbors.end());    
-    }
-
-
 };
+
+/////////////////////////////////////////////////////////////////////////////////
 
 class Graph {
 private:
-    size_t V;
-    size_t E;
-    std::vector<GraphNode*> Vertices;
+    std::vector<std::unique_ptr<GraphNode>> Vertices;
+    size_t E = 0;
 
 public:
-    Graph() {
-        this->V = 0;
-        this->E = 0;
-        this->Vertices = {};
-    }
+    Graph() = default;
 
-    Graph(std::vector<GraphNode*> nodes) {
-        this->V = nodes.size();
-        for (size_t i = 0; i < nodes.size(); ++i) {
-            this->Vertices.push_back(nodes[i]);
-            this->E += nodes[i]->getDegree();
+    Graph(const std::vector<std::vector<int>>& adjM) {
+        size_t V = adjM.size();
+        Vertices.reserve(V);
+        for (size_t i = 0; i < V; ++i) {
+            Vertices.push_back(std::make_unique<GraphNode>(std::to_string(i)));
         }
-    }
-
-    size_t getV() {
-        return this->V;
-    }
-
-    size_t getE() {
-        return this->E;
-    }
-
-    std::vector<GraphNode*> getVertices() {
-        return this->Vertices;
-    }
-
-    void addVertex(GraphNode* vertex) {
-        this->V += 1;
-        this->E += vertex->getDegree();
-        this->Vertices.push_back(vertex);
-    }
-    
-    void removeVertex(GraphNode* vertex) {
-        auto it = std::find(this->Vertices.begin(), this->Vertices.end(), vertex);
-        if (it == this->Vertices.end()) {
-            return;
-        }
-
-        this->Vertices.erase(it);
-        this->V -= 1;
-        this->E -= vertex->getDegree();
-        for (size_t i = 0; i < this->Vertices.size(); ++i) {
-            if (this->Vertices[i]->isNeighbor(vertex)) {
-                this->Vertices[i]->removeNeighbor(vertex);
-                this->E -= 1;
+        for (size_t i = 0; i < V; ++i) {
+            for (size_t j = 0; j < V; ++j) {
+                if (adjM[i][j]) {
+                    Vertices[i]->addNeighbor(Vertices[j].get());
+                    E++;
+                }
             }
         }
     }
-};
 
+    size_t getV() const { return Vertices.size(); }
+    size_t getE() const { return E; }
+
+    std::vector<GraphNode*> getVertices() const {
+        std::vector<GraphNode*> out;
+        out.reserve(Vertices.size());
+        for (auto& p : Vertices) out.push_back(p.get());
+        return out;
+    }
+
+    void addVertex(const std::string& label = "") {
+        Vertices.push_back(std::make_unique<GraphNode>(label));
+    }
+
+    void removeVertex(GraphNode* vertex) {
+        if (!vertex) return;
+
+        // remove incoming edges to vertex
+        for (auto& v : Vertices) {
+            if (v.get() == vertex) continue;
+            if (v->isNeighbor(vertex)) {
+                v->removeNeighbor(vertex);
+                if (E > 0) E--;
+            }
+        }
+
+        // find vertex index
+        size_t idx = Vertices.size();
+        for (size_t i = 0; i < Vertices.size(); ++i) {
+            if (Vertices[i].get() == vertex) { idx = i; break; }
+        }
+        if (idx == Vertices.size()) return;
+
+        // subtract its outgoing edges then erase
+        size_t deg = Vertices[idx]->getDegree();
+        if (E >= deg) E -= deg; else E = 0;
+        Vertices.erase(Vertices.begin() + idx);
+    }
+};
 
 
 #endif
